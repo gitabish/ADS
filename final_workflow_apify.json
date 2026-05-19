@@ -299,7 +299,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "{\n  \"searchStringsArray\": [\n    \"{{ $json[\\\"Business Type\\\"] }} in {{ $json[\\\"City / Location\\\"] }}\"\n  ],\n  \"maxCrawledPlacesPerSearch\": 40,\n  \"language\": \"en\",\n  \"countryCode\": \"us\"\n}",
+        "jsonBody": "{\n  \"searchStringsArray\": [\n    \"{{ $json[\\\"Business Type\\\"] }} in {{ $json[\\\"City / Location\\\"] }}\"\n  ],\n  \"maxCrawledPlacesPerSearch\": 20,\n  \"language\": \"en\",\n  \"countryCode\": \"us\"\n}",
         "options": {
           "timeout": 900000
         }
