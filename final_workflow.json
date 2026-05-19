@@ -118,7 +118,13 @@
             }
           ]
         },
-        "options": {}
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
       },
       "id": "43558954-a7b8-4535-8016-da374e3958de",
       "name": "\ud83d\udcd8 Check Facebook",
@@ -132,7 +138,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const lead = $('\ud83d\udeab Filter: No Website').first().json;\nconst fbData = $input.first().json;\nconst fbPages = fbData.data || [];\nconst matchedPage = fbPages.find(p => p.name?.toLowerCase().includes(lead.business_name?.toLowerCase().substring(0, 6)));\nconst hasFacebook = matchedPage ? true : false;\nconst facebookUrl = matchedPage?.link || '';\nconst fbWebsite = matchedPage?.website || '';\nconst hasWebPresence = hasFacebook && fbWebsite.length > 0;\nreturn [{ json: { ...lead, has_facebook: hasFacebook, facebook_url: facebookUrl, fb_has_website: fbWebsite.length > 0, has_web_presence: hasWebPresence } }];"
+        "jsCode": "\nconst lead = $('\ud83d\udeab Filter: No Website').first().json;\nconst fbData = $input.first().json;\n\n// Check if Facebook returned an error (like an expired token)\nconst isError = fbData.error || fbData.statusCode >= 400;\n\nconst fbPages = isError ? [] : (fbData.data || []);\nconst matchedPage = fbPages.find(p => p.name?.toLowerCase().includes(lead.business_name?.toLowerCase().substring(0, 6)));\n\nconst hasFacebook = matchedPage ? true : false;\nconst facebookUrl = matchedPage?.link || '';\nconst fbWebsite = matchedPage?.website || '';\nconst hasWebPresence = hasFacebook && fbWebsite.length > 0;\n\nreturn [{ \n  json: { \n    ...lead, \n    has_facebook: hasFacebook, \n    facebook_url: facebookUrl, \n    fb_has_website: fbWebsite.length > 0, \n    has_web_presence: hasWebPresence,\n    fb_api_error: isError ? (fbData.error?.message || \"API Error\") : false\n  } \n}];\n"
       },
       "id": "3c6bd5b3-6593-44d8-ba36-9a913084cd65",
       "name": "\ud83d\udd0e Parse Facebook Result",
