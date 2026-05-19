@@ -2,67 +2,6 @@
   "nodes": [
     {
       "parameters": {
-        "formTitle": "Lead Search",
-        "formDescription": "Enter location and business type to search for leads",
-        "formFields": {
-          "values": [
-            {
-              "fieldLabel": "City / Location",
-              "placeholder": "e.g. Chennai, Mumbai, Delhi",
-              "requiredField": true
-            },
-            {
-              "fieldLabel": "Business Type",
-              "fieldType": "dropdown",
-              "fieldOptions": {
-                "values": [
-                  {
-                    "option": "Restaurant"
-                  },
-                  {
-                    "option": "Salon"
-                  },
-                  {
-                    "option": "Healthcare"
-                  },
-                  {
-                    "option": "Gym"
-                  },
-                  {
-                    "option": "Hotel"
-                  },
-                  {
-                    "option": "Pet Store"
-                  },
-                  {
-                    "option": "Services"
-                  },
-                  {
-                    "option": "Retail"
-                  },
-                  {
-                    "option": "General"
-                  }
-                ]
-              },
-              "requiredField": true
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "2a4947b1-c18a-484a-b490-1b842446a94a",
-      "name": "\ud83d\udccb Search Form",
-      "type": "n8n-nodes-base.formTrigger",
-      "typeVersion": 2.2,
-      "position": [
-        -1392,
-        -320
-      ],
-      "webhookId": "lead-search-form"
-    },
-    {
-      "parameters": {
         "conditions": {
           "options": {
             "caseSensitive": false,
@@ -286,6 +225,75 @@
     },
     {
       "parameters": {
+        "jsCode": "\nconst items = $input.all();\n// Use the new form node name and free-text business type\nconst formType = $('On form submission').first().json[\"Business Type\"] || 'general';\n\nconst qualifiedLeads = [];\n\nconst results = Array.isArray(items[0].json) ? items[0].json : items.map(i => i.json);\n\nfor (const place of results) {\n  const rating = place.totalScore || 0;\n  const reviews = place.reviewsCount || 0;\n  \n  if (rating >= 3.0 && reviews > 80) {\n    const website = place.website || '';\n    const phone = place.phoneUnformatted || place.phone || '';\n    \n    qualifiedLeads.push({\n      json: {\n        place_id: place.placeId || '',\n        business_name: place.title || '',\n        address: place.address || '',\n        rating: rating,\n        total_reviews: reviews,\n        types: (place.categories || []).join(', '),\n        category: formType.toLowerCase(), // Save their custom free-text input\n        maps_url: place.url || '',\n        phone: phone,\n        website: website,\n        has_website: website.length > 0,\n        opening_hours: place.openingHours ? JSON.stringify(place.openingHours) : ''\n      }\n    });\n  }\n}\n\nreturn qualifiedLeads;\n"
+      },
+      "id": "parse-apify-id",
+      "name": "\ud83d\udd0d Parse & Filter Apify",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1312,
+        176
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "formTitle": "Lead Machine",
+        "formDescription": "Provide the Info Below",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Business Type",
+              "placeholder": "e.g. Plumber",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Location",
+              "placeholder": "e.g. Rome, Italy",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Lead Number",
+              "fieldType": "number",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Email Style",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Friendly"
+                  },
+                  {
+                    "option": "Professional"
+                  },
+                  {
+                    "option": "Simple"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "appendAttribution": false,
+          "buttonLabel": "GO \ud83d\ude80"
+        }
+      },
+      "id": "533b2746-2972-43bb-a862-be78adc4f9af",
+      "name": "On form submission",
+      "type": "n8n-nodes-base.formTrigger",
+      "position": [
+        -1824,
+        176
+      ],
+      "webhookId": "64f627e5-80d8-4cd6-8b3a-1472aeb7ae89",
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
         "method": "POST",
         "url": "https://api.apify.com/v2/acts/compass~crawler-google-places/run-sync-get-dataset-items",
         "sendQuery": true,
@@ -299,47 +307,22 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "{\n  \"searchStringsArray\": [\n    \"{{ $json[\\\"Business Type\\\"] }} in {{ $json[\\\"City / Location\\\"] }}\"\n  ],\n  \"maxCrawledPlacesPerSearch\": 20,\n  \"language\": \"en\",\n  \"countryCode\": \"us\"\n}",
+        "jsonBody": "{\n    \"includeWebResults\": false,\n    \"language\": \"en\",\n    \"locationQuery\": \"{{ $json.Location }}\",\n    \"maxCrawledPlacesPerSearch\": {{ $json['Lead Number'] }},\n    \"maxImages\": 0,\n    \"maximumLeadsEnrichmentRecords\": 0,\n    \"scrapeContacts\": false,\n    \"scrapeDirectories\": false,\n    \"scrapeImageAuthors\": false,\n    \"scrapePlaceDetailPage\": false,\n    \"scrapeReviewsPersonalData\": true,\n    \"scrapeTableReservationProvider\": false,\n    \"searchStringsArray\": [\n        \"{{ $json['Business Type'] }}\"\n    ],\n    \"skipClosedPlaces\": false\n}",
         "options": {
           "timeout": 900000
         }
       },
-      "id": "apify-scraper-id",
-      "name": "\ud83d\udd78\ufe0f Apify Google Maps Scraper",
+      "id": "595b9b80-dfca-4c7d-bb52-16b34405aad1",
+      "name": "HTTP Request",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
       "position": [
-        -1168,
-        -320
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "\nconst items = $input.all();\nconst formType = $('\ud83d\udccb Search Form').first().json[\"Business Type\"];\n\nconst typeMap = {\n  \"Restaurant\":\"restaurant\",\n  \"Salon\":\"salon\",\n  \"Healthcare\":\"healthcare\",\n  \"Gym\":\"gym\",\n  \"Hotel\":\"hotel\",\n  \"Pet Store\":\"pets\",\n  \"Services\":\"services\",\n  \"Retail\":\"retail\",\n  \"General\":\"general\"\n};\n\nconst category = formType ? (typeMap[formType] || 'general') : 'general';\nconst qualifiedLeads = [];\n\n// Apify returns an array of objects. Depending on n8n version, it might be items[0].json array or separate items\nconst results = Array.isArray(items[0].json) ? items[0].json : items.map(i => i.json);\n\nfor (const place of results) {\n  const rating = place.totalScore || 0;\n  const reviews = place.reviewsCount || 0;\n  \n  // Strict Filter: Rating must be 3-5, and reviews must be > 80\n  if (rating >= 3.0 && reviews > 80) {\n    const website = place.website || '';\n    const phone = place.phoneUnformatted || place.phone || '';\n    \n    qualifiedLeads.push({\n      json: {\n        place_id: place.placeId || '',\n        business_name: place.title || '',\n        address: place.address || '',\n        rating: rating,\n        total_reviews: reviews,\n        types: (place.categories || []).join(', '),\n        category: category,\n        maps_url: place.url || '',\n        phone: phone,\n        website: website,\n        has_website: website.length > 0,\n        opening_hours: place.openingHours ? JSON.stringify(place.openingHours) : ''\n      }\n    });\n  }\n}\n\nreturn qualifiedLeads;\n"
-      },
-      "id": "parse-apify-id",
-      "name": "\ud83d\udd0d Parse & Filter Apify",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        -944,
-        -320
+        -1568,
+        176
       ],
-      "alwaysOutputData": true
+      "typeVersion": 4.2
     }
   ],
   "connections": {
-    "\ud83d\udccb Search Form": {
-      "main": [
-        [
-          {
-            "node": "\ud83d\udd78\ufe0f Apify Google Maps Scraper",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "\ud83d\udeab Filter: No Website": {
       "main": [
         [
@@ -406,22 +389,33 @@
         ]
       ]
     },
-    "\ud83d\udd78\ufe0f Apify Google Maps Scraper": {
+    "\ud83d\udd0d Parse & Filter Apify": {
       "main": [
         [
           {
-            "node": "\ud83d\udd0d Parse & Filter Apify",
+            "node": "\ud83d\udeab Filter: No Website",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "\ud83d\udd0d Parse & Filter Apify": {
+    "On form submission": {
       "main": [
         [
           {
-            "node": "\ud83d\udeab Filter: No Website",
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "\ud83d\udd0d Parse & Filter Apify",
             "type": "main",
             "index": 0
           }
