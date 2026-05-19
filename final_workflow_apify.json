@@ -299,9 +299,9 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "{\n  \"searchStringsArray\": [\n    \"{{ $json[\\\"Business Type\\\"] }} in {{ $json[\\\"City / Location\\\"] }}\"\n  ],\n  \"maxCrawledPlacesPerSearch\": 60,\n  \"language\": \"en\",\n  \"countryCode\": \"us\"\n}",
+        "jsonBody": "{\n  \"searchStringsArray\": [\n    \"{{ $json[\\\"Business Type\\\"] }} in {{ $json[\\\"City / Location\\\"] }}\"\n  ],\n  \"maxCrawledPlacesPerSearch\": 40,\n  \"language\": \"en\",\n  \"countryCode\": \"us\"\n}",
         "options": {
-          "timeout": 300000
+          "timeout": 900000
         }
       },
       "id": "apify-scraper-id",
