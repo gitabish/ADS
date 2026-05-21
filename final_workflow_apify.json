@@ -1,0 +1,431 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "no-website",
+              "leftValue": "={{ $json.has_website }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "049ec0ff-e419-4164-8e24-b718aa3788db",
+      "name": "\ud83d\udeab Filter: No Website",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -288,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://graph.facebook.com/v19.0/search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ $json.business_name }}"
+            },
+            {
+              "name": "type",
+              "value": "page"
+            },
+            {
+              "name": "fields",
+              "value": "name,website,link,category"
+            },
+            {
+              "name": "access_token",
+              "value": "EAAL2l4QMZA3QBRSEBexZCnjjsqgEFarNdzXTLU8ZCAdcZBIc2IZCoVlpzhObMZCSWsZBLC5wxraQun2ShgheoyuidzZBYrOhGfosEG1q5z73DoKt7VGNZBzFxa4BtTgvGyt4qCKlK5PZBXdXGyZBLpucU4rvBXSNb7vLUezAXfw3iFlTivvH2NiwUDXPgSTljC83JVRa1T3RCI1Cbz4h4Ojmx2bJRdbsVJaB749AyxzMOLDolek6gJIMfmQbfk0PX60sVT8OWB8lsaUnThPSZC0OhmvP"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "43558954-a7b8-4535-8016-da374e3958de",
+      "name": "\ud83d\udcd8 Check Facebook",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -64,
+        -448
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst lead = $('\ud83d\udeab Filter: No Website').first().json;\nconst fbData = $input.first().json;\n\n// Check if Facebook returned an error (like an expired token)\nconst isError = fbData.error || fbData.statusCode >= 400;\n\nconst fbPages = isError ? [] : (fbData.data || []);\nconst matchedPage = fbPages.find(p => p.name?.toLowerCase().includes(lead.business_name?.toLowerCase().substring(0, 6)));\n\nconst hasFacebook = matchedPage ? true : false;\nconst facebookUrl = matchedPage?.link || '';\nconst fbWebsite = matchedPage?.website || '';\nconst hasWebPresence = hasFacebook && fbWebsite.length > 0;\n\nreturn [{ \n  json: { \n    ...lead, \n    has_facebook: hasFacebook, \n    facebook_url: facebookUrl, \n    fb_has_website: fbWebsite.length > 0, \n    has_web_presence: hasWebPresence,\n    fb_api_error: isError ? (fbData.error?.message || \"API Error\") : false\n  } \n}];\n"
+      },
+      "id": "3c6bd5b3-6593-44d8-ba36-9a913084cd65",
+      "name": "\ud83d\udd0e Parse Facebook Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        160,
+        -448
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://www.instagram.com/api/v1/users/web_profile_info/",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "username",
+              "value": "={{ $json.business_name.toLowerCase().replace(/\\s+/g, '') }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-ig-app-id",
+              "value": "936619743392459"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "0e1864a3-898a-4d0f-958e-56cdd73dde99",
+      "name": "\ud83d\udcf8 Check Instagram",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        384,
+        -448
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const lead = $('\ud83d\udd0e Parse Facebook Result').first().json;\nconst igData = $input.first().json;\nconst igUser = igData?.data?.user;\nconst hasInstagram = igUser ? true : false;\nconst instagramUrl = hasInstagram ? `https://www.instagram.com/${igUser.username}/` : '';\nconst igHasWebsite = igUser?.bio_links?.length > 0 || igUser?.external_url?.length > 0;\nconst phone = lead.phone || '';\nconst isIndianNumber = phone.includes('+91') || phone.startsWith('0');\nconst likelyHasWhatsApp = phone.length > 6 && isIndianNumber;\nlet outreachChannel = 'unknown';\nif (likelyHasWhatsApp) outreachChannel = 'whatsapp';\nelse if (lead.email) outreachChannel = 'email';\nelse outreachChannel = 'manual_check';\nconst isQualifiedLead = !lead.has_website && !lead.fb_has_website && !igHasWebsite;\nreturn [{ json: { ...lead, has_instagram: hasInstagram, instagram_url: instagramUrl, ig_has_website: igHasWebsite, likely_has_whatsapp: likelyHasWhatsApp, outreach_channel: outreachChannel, is_qualified_lead: isQualifiedLead, status: 'pending_review', added_date: new Date().toISOString().split('T')[0] } }];"
+      },
+      "id": "69c1e8e2-d810-4601-996f-1aef17ab56aa",
+      "name": "\u2705 Final Qualification",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        608,
+        -448
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "id": "qualified",
+              "leftValue": "={{ $json.is_qualified_lead }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          }
+        },
+        "options": {}
+      },
+      "id": "9d8b4d41-1f43-4f6c-b9b1-7341ef82fb73",
+      "name": "\ud83c\udfaf Only Qualified Leads",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        832,
+        -448
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "mode": "id",
+          "value": "YOUR_GOOGLE_SHEET_ID"
+        },
+        "sheetName": {
+          "mode": "name",
+          "value": "Leads"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Business Name": "={{ $json.business_name }}",
+            "Category": "={{ $json.category }}",
+            "Address": "={{ $json.address }}",
+            "Phone": "={{ $json.phone }}",
+            "Email": "={{ $json.email || '' }}",
+            "Rating": "={{ $json.rating }}",
+            "Total Reviews": "={{ $json.total_reviews }}",
+            "Maps URL": "={{ $json.maps_url }}",
+            "Has Facebook": "={{ $json.has_facebook }}",
+            "Facebook URL": "={{ $json.facebook_url }}",
+            "Has Instagram": "={{ $json.has_instagram }}",
+            "Instagram URL": "={{ $json.instagram_url }}",
+            "Outreach Channel": "={{ $json.outreach_channel }}",
+            "Likely Has WhatsApp": "={{ $json.likely_has_whatsapp }}",
+            "Status": "pending_review",
+            "Date Added": "={{ $json.added_date }}",
+            "Verified": "NO",
+            "Notes": ""
+          }
+        },
+        "options": {}
+      },
+      "id": "6c07a766-4a8c-4fec-8edc-4bacf7e40cea",
+      "name": "\ud83d\udcca Save to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.2,
+      "position": [
+        1056,
+        -448
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "p7QCKr4f4b16Y2Tc",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst items = $input.all();\n// Use the new form node name and free-text business type\nconst formType = $('On form submission').first().json[\"Business Type\"] || 'general';\n\nconst qualifiedLeads = [];\n\nconst results = Array.isArray(items[0].json) ? items[0].json : items.map(i => i.json);\n\nfor (const place of results) {\n  const rating = place.totalScore || 0;\n  const reviews = place.reviewsCount || 0;\n  \n  if (rating >= 3.0 && reviews > 80) {\n    const website = place.website || '';\n    const phone = place.phoneUnformatted || place.phone || '';\n    \n    qualifiedLeads.push({\n      json: {\n        place_id: place.placeId || '',\n        business_name: place.title || '',\n        address: place.address || '',\n        rating: rating,\n        total_reviews: reviews,\n        types: (place.categories || []).join(', '),\n        category: formType.toLowerCase(), // Save their custom free-text input\n        maps_url: place.url || '',\n        phone: phone,\n        website: website,\n        has_website: website.length > 0,\n        opening_hours: place.openingHours ? JSON.stringify(place.openingHours) : ''\n      }\n    });\n  }\n}\n\nreturn qualifiedLeads;\n"
+      },
+      "id": "parse-apify-id",
+      "name": "\ud83d\udd0d Parse & Filter Apify",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1312,
+        176
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "formTitle": "Lead Machine",
+        "formDescription": "Provide the Info Below",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Business Type",
+              "placeholder": "e.g. Plumber",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Location",
+              "placeholder": "e.g. Rome, Italy",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Lead Number",
+              "fieldType": "number",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Email Style",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Friendly"
+                  },
+                  {
+                    "option": "Professional"
+                  },
+                  {
+                    "option": "Simple"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "appendAttribution": false,
+          "buttonLabel": "GO \ud83d\ude80"
+        }
+      },
+      "id": "533b2746-2972-43bb-a862-be78adc4f9af",
+      "name": "On form submission",
+      "type": "n8n-nodes-base.formTrigger",
+      "position": [
+        -1824,
+        176
+      ],
+      "webhookId": "64f627e5-80d8-4cd6-8b3a-1472aeb7ae89",
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/compass~crawler-google-places/run-sync-get-dataset-items",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "token",
+              "value": "YOUR_APIFY_API_TOKEN"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n    \"includeWebResults\": false,\n    \"language\": \"en\",\n    \"locationQuery\": \"{{ $json.Location }}\",\n    \"maxCrawledPlacesPerSearch\": {{ $json['Lead Number'] }},\n    \"maxImages\": 0,\n    \"maximumLeadsEnrichmentRecords\": 0,\n    \"scrapeContacts\": false,\n    \"scrapeDirectories\": false,\n    \"scrapeImageAuthors\": false,\n    \"scrapePlaceDetailPage\": false,\n    \"scrapeReviewsPersonalData\": true,\n    \"scrapeTableReservationProvider\": false,\n    \"searchStringsArray\": [\n        \"{{ $json['Business Type'] }}\"\n    ],\n    \"skipClosedPlaces\": false\n}",
+        "options": {
+          "timeout": 900000
+        }
+      },
+      "id": "595b9b80-dfca-4c7d-bb52-16b34405aad1",
+      "name": "HTTP Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        -1568,
+        176
+      ],
+      "typeVersion": 4.2
+    }
+  ],
+  "connections": {
+    "\ud83d\udeab Filter: No Website": {
+      "main": [
+        [
+          {
+            "node": "\ud83d\udcd8 Check Facebook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "\ud83d\udcd8 Check Facebook": {
+      "main": [
+        [
+          {
+            "node": "\ud83d\udd0e Parse Facebook Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "\ud83d\udd0e Parse Facebook Result": {
+      "main": [
+        [
+          {
+            "node": "\ud83d\udcf8 Check Instagram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "\ud83d\udcf8 Check Instagram": {
+      "main": [
+        [
+          {
+            "node": "\u2705 Final Qualification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "\u2705 Final Qualification": {
+      "main": [
+        [
+          {
+            "node": "\ud83c\udfaf Only Qualified Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "\ud83c\udfaf Only Qualified Leads": {
+      "main": [
+        [
+          {
+            "node": "\ud83d\udcca Save to Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "\ud83d\udd0d Parse & Filter Apify": {
+      "main": [
+        [
+          {
+            "node": "\ud83d\udeab Filter: No Website",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "\ud83d\udd0d Parse & Filter Apify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f931ed34b6206274992c9853a73e53f733a26e42c2ae466acbbad67f09bbd8a0"
+  }
+}
